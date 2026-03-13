@@ -1,0 +1,56 @@
+{
+  "entities": {
+    "Character": {
+      "title": "Character",
+      "description": "An AI bot created by a user",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the character"
+        },
+        "name": {
+          "type": "string",
+          "description": "Name of the character"
+        },
+        "avatar": {
+          "type": "string",
+          "description": "URL of the character's avatar"
+        },
+        "description": {
+          "type": "string",
+          "description": "Short description of the character"
+        },
+        "systemPrompt": {
+          "type": "string",
+          "description": "The system prompt defining the character's behavior"
+        },
+        "affection": {
+          "type": "number",
+          "description": "Initial affection level"
+        },
+        "firstMessage": {
+          "type": "string",
+          "description": "Optional first message from the character"
+        },
+        "creatorId": {
+          "type": "string",
+          "description": "The UID of the user who created this character"
+        },
+        "createdAt": {
+          "type": "number",
+          "description": "Timestamp when the character was created"
+        }
+      },
+      "required": ["id", "name", "avatar", "description", "systemPrompt", "affection", "creatorId", "createdAt"]
+    }
+  },
+  "firestore": {
+    "characters": {
+      "schema": {
+        "$ref": "#/entities/Character"
+      },
+      "description": "Collection of all AI characters created by users"
+    }
+  }
+}

@@ -1,0 +1,87 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: characters
+    // Document ID: {characterId}
+    // Fields:
+    //   - id: string (required) - Unique ID
+    //   - name: string (required, < 100 chars) - Name of the bot
+    //   - avatar: string (required, < 1000 chars) - Avatar URL
+    //   - description: string (required, < 500 chars) - Short description
+    //   - systemPrompt: string (required, < 5000 chars) - AI prompt
+    //   - affection: number (required) - Initial affection
+    //   - firstMessage: string (optional, < 1000 chars) - First message
+    //   - creatorId: string (required) - UID of creator
+    //   - createdAt: number (required) - Timestamp
+    //
+    // ===============================================================
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function hasRequiredFields(fields) {
+      return request.resource.data.keys().hasAll(fields);
+    }
+
+    function validStringLength(field, minLen, maxLen) {
+      return request.resource.data[field] is string &&
+        request.resource.data[field].size() >= minLen &&
+        request.resource.data[field].size() <= maxLen;
+    }
+
+    function isValidOptionalString(field, minLen, maxLen) {
+      return !('field' in request.resource.data) ||
+             (request.resource.data[field] is string &&
+              request.resource.data[field].size() >= minLen &&
+              request.resource.data[field].size() <= maxLen);
+    }
+
+    // ===============================================================
+    // Domain Validators
+    // ===============================================================
+
+    function isValidCharacter(data) {
+      return hasRequiredFields(['id', 'name', 'avatar', 'description', 'systemPrompt', 'affection', 'creatorId', 'createdAt']) &&
+             validStringLength('id', 1, 100) &&
+             validStringLength('name', 1, 100) &&
+             validStringLength('avatar', 1, 2000000) &&
+             validStringLength('description', 0, 500) &&
+             validStringLength('systemPrompt', 1, 5000) &&
+             data.affection is number &&
+             data.creatorId == request.auth.uid &&
+             data.createdAt is number &&
+             (!('firstMessage' in data) || validStringLength('firstMessage', 1, 1000));
+    }
+
+    match /characters/{characterId} {
+      // Allow anyone authenticated to read characters
+      allow read: if isAuthenticated();
+      
+      // Allow authenticated users to create characters if data is valid
+      allow create: if isAuthenticated() && isValidCharacter(request.resource.data);
+      
+      // Allow creator to update their own characters
+      allow update: if isAuthenticated() && 
+                    resource.data.creatorId == request.auth.uid && 
+                    isValidCharacter(request.resource.data) &&
+                    request.resource.data.creatorId == resource.data.creatorId; // Immutable creatorId
+                    
+      // Allow creator to delete their own characters
+      allow delete: if isAuthenticated() && resource.data.creatorId == request.auth.uid;
+    }
+  }
+}
