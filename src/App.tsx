@@ -10,8 +10,7 @@ import { DiscoverBots } from './components/DiscoverBots';
 import { useLocalStorage } from './hooks/useLocalStorage';
 import { Character, Message, UserProfile, AppSettings } from './types';
 import { DEFAULT_CHARACTERS } from './constants';
-import { auth, db } from './firebase';
-import { onAuthStateChanged, signOut } from 'firebase/auth';
+import { db } from './firebase';
 import { collection, onSnapshot, query, orderBy, doc, setDoc } from 'firebase/firestore';
 
 const DEFAULT_APP_SETTINGS: AppSettings = {
@@ -33,30 +32,9 @@ export default function App() {
   const [activeTab, setActiveTab] = useState('chat');
   const [isMobileChatView, setIsMobileChatView] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
-  const [isAuthReady, setIsAuthReady] = useState(false);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      if (user) {
-        // Only update if we don't have a profile or if it's a new login
-        if (!userProfile || userProfile.name === 'User' || userProfile.name === 'Google User') {
-           setUserProfile({
-             name: user.displayName || user.phoneNumber || 'User',
-             avatar: user.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.uid}&backgroundColor=b6e3f4,c0aede,d1d4f9`
-           });
-        }
-      } else {
-        // User is signed out
-        setUserProfile(null);
-      }
-      setIsAuthReady(true);
-    });
-
-    return () => unsubscribe();
-  }, []);
-
-  useEffect(() => {
-    if (!isAuthReady || !auth.currentUser) return;
+    if (!userProfile) return;
 
     const q = query(collection(db, 'characters'), orderBy('createdAt', 'asc'));
     const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -71,7 +49,7 @@ export default function App() {
     });
 
     return () => unsubscribe();
-  }, [isAuthReady]);
+  }, [userProfile]);
 
   React.useEffect(() => {
     setMessages(prev => {
@@ -94,19 +72,6 @@ export default function App() {
     });
   }, [characters, setMessages]);
 
-  if (!isAuthReady) {
-    return (
-      <div className="min-h-screen bg-[#FFE4E1] flex flex-col items-center justify-center p-4 font-sans animate-pulse">
-        <div className="w-24 h-24 rounded-3xl bg-gradient-to-br from-pink-500 to-violet-500 flex items-center justify-center shadow-[0_0_40px_rgba(236,72,153,0.4)] mb-6">
-          <span className="text-white font-bold text-5xl">S</span>
-        </div>
-        <h1 className="text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-pink-400 to-violet-400 tracking-tight">
-          Sweetie Chat
-        </h1>
-      </div>
-    );
-  }
-
   if (!userProfile) {
     return <GuestLogin onLogin={setUserProfile} />;
   }
@@ -114,11 +79,11 @@ export default function App() {
   const activeCharacter = characters.find(c => c.id === activeCharId) || null;
 
   const handleCreateBot = async (newChar: Character) => {
-    if (!auth.currentUser) return;
+    if (!userProfile) return;
     
     const charToSave: Character = {
       ...newChar,
-      creatorId: auth.currentUser.uid,
+      creatorId: userProfile.uid || 'anonymous',
       createdAt: Date.now()
     };
 

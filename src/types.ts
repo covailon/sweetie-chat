@@ -24,6 +24,7 @@ export interface Message {
 export interface UserProfile {
   name: string;
   avatar: string;
+  uid?: string;
 }
 
 export interface AppSettings {

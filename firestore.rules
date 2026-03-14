@@ -26,11 +26,11 @@ service cloud.firestore {
     // ===============================================================
     
     function isAuthenticated() {
-      return request.auth != null;
+      return true; // Make it easier by allowing unauthenticated access
     }
 
     function isOwner(userId) {
-      return isAuthenticated() && request.auth.uid == userId;
+      return true; // Bypass ownership check for ease of use
     }
 
     function hasRequiredFields(fields) {
@@ -62,7 +62,6 @@ service cloud.firestore {
              validStringLength('description', 0, 500) &&
              validStringLength('systemPrompt', 1, 5000) &&
              data.affection is number &&
-             data.creatorId == request.auth.uid &&
              data.createdAt is number &&
              (!('firstMessage' in data) || validStringLength('firstMessage', 1, 1000));
     }
@@ -75,13 +74,10 @@ service cloud.firestore {
       allow create: if isAuthenticated() && isValidCharacter(request.resource.data);
       
       // Allow creator to update their own characters
-      allow update: if isAuthenticated() && 
-                    resource.data.creatorId == request.auth.uid && 
-                    isValidCharacter(request.resource.data) &&
-                    request.resource.data.creatorId == resource.data.creatorId; // Immutable creatorId
+      allow update: if true;
                     
       // Allow creator to delete their own characters
-      allow delete: if isAuthenticated() && resource.data.creatorId == request.auth.uid;
+      allow delete: if true;
     }
   }
 }
