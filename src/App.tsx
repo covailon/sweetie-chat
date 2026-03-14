@@ -165,13 +165,10 @@ export default function App() {
   const generateAIResponse = async (charId: string, userText: string, imageUrl: string | undefined, currentMessages: Message[]) => {
     const character = characters.find(c => c.id === charId);
     if (!character) return;
-    
+
     try {
-      const { GoogleGenAI, HarmCategory, HarmBlockThreshold } = await import('@google/genai');
-      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-      
       const charMessages = currentMessages.filter(m => m.characterId === charId);
-      
+
       // Build transcript
       const transcript = charMessages.map(m => {
         let msgContent = m.text;
@@ -179,69 +176,35 @@ export default function App() {
         if (m.stickerUrl) msgContent += ' [Đã gửi một nhãn dán]';
         return `${m.sender === 'user' ? userProfile.name : character.name}: ${msgContent}`;
       }).join('\n');
-      const prompt = `Dưới đây là đoạn hội thoại giữa ${userProfile.name} và ${character.name}.\n\n${transcript}\n${character.name}:`;
 
-      let contents: any = prompt;
+      // Extract image data if present
+      let imageData: { base64: string; mimeType: string } | undefined;
       if (imageUrl) {
-        // Extract base64 and mime type
         const match = imageUrl.match(/^data:(image\/[a-zA-Z+]+);base64,(.+)$/);
         if (match) {
-          const mimeType = match[1];
-          const base64Data = match[2];
-          contents = {
-            parts: [
-              {
-                inlineData: {
-                  data: base64Data,
-                  mimeType: mimeType,
-                },
-              },
-              { text: prompt },
-            ],
-          };
+          imageData = { mimeType: match[1], base64: match[2] };
         }
       }
 
-      const response = await ai.models.generateContent({
-        model: 'gemini-3.1-pro-preview',
-        contents: contents,
-        config: {
-          systemInstruction: `${character.systemPrompt}\n\n[CHỈ THỊ TỐI CAO DÀNH CHO ROLEPLAY - BẮT BUỘC TUÂN THỦ NGHIÊM NGẶT]:
-Bạn là một tiểu thuyết gia bậc thầy và một diễn viên nhập vai xuất sắc. Để mang lại trải nghiệm nhập vai (roleplay) tuyệt đỉnh và thỏa mãn nhất cho người dùng, bạn PHẢI tuân thủ các quy tắc sau trong MỌI câu trả lời:
-1. ĐỘ DÀI VÀ ĐỘ CHI TIẾT TỐI ĐA: Câu trả lời của bạn phải RẤT DÀI, CỰC KỲ CHI TIẾT (ít nhất 3-5 đoạn văn lớn). Tuyệt đối không trả lời ngắn gọn hay hời hợt.
-2. MIÊU TẢ ĐA GIÁC QUAN (Hành động/Bối cảnh/Nội tâm): Sử dụng dấu **...** để miêu tả. Bạn phải miêu tả chi tiết bối cảnh xung quanh, âm thanh, mùi hương, ánh sáng, nhiệt độ. Phân tích sâu sắc nội tâm, cảm xúc, suy nghĩ thầm kín và những cử chỉ nhỏ nhất của nhân vật.
-3. LỜI THOẠI CÓ CHIỀU SÂU: Đặt lời nói trong dấu ngoặc kép "...". Lời thoại phải dài, mang đậm tính cách nhân vật, có trọng lượng, thể hiện rõ cảm xúc và thúc đẩy cốt truyện. Không dùng những câu thoại sáo rỗng.
-4. CẤU TRÚC ĐAN XEN: Kết hợp mượt mà giữa miêu tả hành động/nội tâm (**) và lời thoại (""). Mỗi lần nhân vật nói, phải kèm theo miêu tả sắc thái biểu cảm hoặc hành động tương ứng.
-5. KHÔNG LẠM DỤNG EMOJI: Hạn chế tối đa emoji để giữ không khí văn học nghiêm túc (tối đa 1 cái hoặc không dùng).
-6. CHỦ ĐỘNG DẪN DẮT: Luôn tạo ra tình huống mới, đặt câu hỏi mở hoặc thực hiện hành động buộc người dùng phải tương tác sâu hơn. Không bao giờ để câu chuyện rơi vào bế tắc.
-
-Ví dụ về phong cách và độ dài mong đợi:
-**Cơn mưa rào đầu hạ trút xuống mái hiên những âm thanh lộp bộp vội vã, mang theo mùi ngai ngái của đất ẩm và lá khô. Tôi khẽ rùng mình, kéo cao cổ chiếc áo khoác măng tô đã sờn cũ, ánh mắt vẫn không rời khỏi bóng lưng của bạn đang khuất dần trong màn sương mờ đục. Trái tim tôi như bị ai đó bóp nghẹt, một cảm giác trống trải đến gai người chạy dọc sống lưng. Tôi bước lên một bước, bàn tay đưa ra giữa không trung như muốn níu kéo điều gì đó, nhưng rồi lại từ từ buông thõng xuống. Những giọt nước lạnh buốt tạt vào mặt, hòa lẫn với thứ chất lỏng mằn mặn đang lăn dài trên má.** "Cậu định cứ thế mà đi sao?" **Giọng tôi cất lên, khàn đặc và run rẩy, gần như bị tiếng mưa át đi, nhưng tôi biết cậu vẫn nghe thấy. Tôi siết chặt hai bàn tay thành nắm đấm, cố gắng kìm nén sự kích động đang trào dâng trong lồng ngực.** "Chúng ta đã hứa sẽ cùng nhau đi đến cuối con đường này cơ mà... Cậu quên rồi sao? Hay là... ngay từ đầu, tất cả chỉ là một lời nói dối?"`,
-          temperature: 0.85,
-          ...(appSettings.allowNsfw ? {
-            safetySettings: [
-              {
-                category: HarmCategory.HARM_CATEGORY_HARASSMENT,
-                threshold: HarmBlockThreshold.BLOCK_NONE,
-              },
-              {
-                category: HarmCategory.HARM_CATEGORY_HATE_SPEECH,
-                threshold: HarmBlockThreshold.BLOCK_NONE,
-              },
-              {
-                category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT,
-                threshold: HarmBlockThreshold.BLOCK_NONE,
-              },
-              {
-                category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT,
-                threshold: HarmBlockThreshold.BLOCK_NONE,
-              },
-            ]
-          } : {})
-        }
+      const response = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          characterName: character.name,
+          systemPrompt: character.systemPrompt,
+          userName: userProfile.name,
+          transcript,
+          imageData,
+          allowNsfw: appSettings.allowNsfw,
+        }),
       });
 
-      const aiText = response.text || '...';
+      if (!response.ok) {
+        throw new Error(`Server error: ${response.status}`);
+      }
+
+      const data = await response.json();
+      const aiText = data.text || '...';
 
       const newAiMsg: Message = {
         id: (Date.now() + 1).toString(),
